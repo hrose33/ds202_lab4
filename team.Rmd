@@ -49,10 +49,13 @@ offClean <- offense %>%
   mutate_at(.var = vars(Rushing_ATT, Rushing_YDS, Rushing_TD, Receiving_REC, Receiving_YDS, Receiving_TD,
               Passing_CMP, Passing_ATT, Passing_YDS, Passing_TD, Passing_INT),
             .funs = funs(as.numeric))
-bio$Height <- gsub("-", ".", bio$Height)
+bio %>%
+  separate(Height, c('feet', 'inches'), "-", convert = TRUE) %>%
+  mutate(cm = (12*feet +inches) * 2.54)
 bioClean <- bio %>%
   mutate_at(.var = vars(Weight, Height),
             .funs = funs(as.numeric))
+
 head(offClean)
 head(defClean)
 head(bioClean)
@@ -82,13 +85,49 @@ defClean2 <- defClean %>%
   pivot_wider(names_from = Opponent_Opponent, values_from = Value) %>% 
   drop_na()
 
-defClean2 %>% 
-  head()
+defClean2 %>%
+	head()
 
-defClean2 %>%  
-  ggplot(aes(x="West Virginia", y="Kansas State", colour=Name)) +
-  geom_point()
-
+defClean2 %>%
+  ggplot(aes(x=`West Virginia`, y=`Kansas State`)) + geom_point()
 ```
 
+```{r}
+off_HT <- bioClean %>%
+  select(Name) %>%
+  right_join(bioClean, offClean, by="Name")
+head(off_HT)
+```
 
+```{r}
+weight_YDS <- merge(offClean, bioClean, by="Name")
+weight_YDS %>%
+  group_by(Name) %>%
+  select(Name, Receiving_YDS, Weight) %>%
+  ggplot(aes(x=Weight, y=Receiving_YDS)) + geom_point() + geom_smooth(method=lm)
+```
+
+### The regression line shows that there is a slight increase in receiving yards while increasing in weight. 
+
+```{r}
+purdy_stats <- offClean %>%
+  filter(Name == "Purdy, Brock") %>%
+  select(Rushing_YDS, Passing_YDS, Opponent_Opponent) %>%
+  mutate(total_yds = Rushing_YDS + Passing_YDS)
+
+
+
+team_stats <- offClean %>%
+  filter(Name != "Purdy, Brock") %>%
+  select(Rushing_YDS, Passing_YDS, Opponent_Opponent) %>%
+  drop_na() %>%
+  mutate(total_yds = Rushing_YDS + Passing_YDS)
+
+
+total_stats <- right_join(purdy_stats, team_stats, by = "Opponent_Opponent")
+
+total_stats %>%
+  select(total_yds.x, total_yds.y, Opponent_Opponent) %>%
+  mutate(total_team_yds = total_yds.x + total_yds.y)
+```
+Brock Purdy is the main source of yards for the ISU offense. If he doesn't perform well, the entire offense will be performing poorly. 
