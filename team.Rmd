@@ -1,1 +1,44 @@
-lab
+---
+title: Lab 4
+author: Hunter Rose, Tanner Boyle
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(stringr)
+```
+
+```{r}
+defense <- read_excel('cyclonesFootball2019.xlsx', sheet='Defensive')
+offense <- read_excel('cyclonesFootball2019.xlsx', sheet='Offensive')
+bio <- read_excel('cyclonesFootball2019.xlsx', sheet='Biography')
+```
+
+```{r}
+defense$Name <- as.factor(defense$Name)
+offense$Name <- as.factor(offense$Name)
+bio$Name <- as.factor(bio$Name)
+```
+
+```{r}
+defClean <- defense %>%
+  mutate_at(.var = vars(Tackles_Solo, Tackles_ASST, Tackles_TFL, Tackles_Sack),
+            .funs = funs(as.numeric))
+offClean <- offense %>%
+  mutate_at(.var = vars(Rushing_ATT, Rushing_YDS, Rushing_TD, Receiving_REC),
+            .funs = funs(as.numeric))
+bio$Height <- gsub("-", ".", bio$Height)
+bioClean <- bio %>%
+  mutate_at(.var = vars(Weight, Height),
+            .funs = funs(as.numeric))
+head(offClean)
+head(defClean)
+head(bioClean)
+```
+
+
