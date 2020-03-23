@@ -27,10 +27,27 @@ bio$Name <- as.factor(bio$Name)
 
 ```{r}
 defClean <- defense %>%
-  mutate_at(.var = vars(Tackles_Solo, Tackles_ASST, Tackles_TFL, Tackles_Sack),
+  mutate_at(.var = vars(Tackles_Solo, Tackles_ASST, Tackles_TFL, Tackles_Sack, Turnover_FF, Turnover_FR,
+          Turnover_INT, Pass_QBH, Pass_PB),
             .funs = funs(as.numeric))
+
+offense <- offense %>% 
+  rename(Passing_CMPATT = `Passing_CMP-ATT`) %>% 
+  mutate(Passing_CMPATT = gsub(" ", "", Passing_CMPATT),
+         Passing_CMPATT = gsub("-\r\n", "", Passing_CMPATT))
+
+offense <- offense %>% 
+  separate(Passing_CMPATT,
+           into = c("Passing_CMP", "Passing_ATT"),
+           sep = 2)
+
+offense %>% 
+  filter(Name == "Purdy, Brock") %>% 
+  head()
+
 offClean <- offense %>%
-  mutate_at(.var = vars(Rushing_ATT, Rushing_YDS, Rushing_TD, Receiving_REC),
+  mutate_at(.var = vars(Rushing_ATT, Rushing_YDS, Rushing_TD, Receiving_REC, Receiving_YDS, Receiving_TD,
+              Passing_CMP, Passing_ATT, Passing_YDS, Passing_TD, Passing_INT),
             .funs = funs(as.numeric))
 bio$Height <- gsub("-", ".", bio$Height)
 bioClean <- bio %>%
@@ -39,6 +56,39 @@ bioClean <- bio %>%
 head(offClean)
 head(defClean)
 head(bioClean)
+```
+
+```{r}
+defClean <- defClean %>% 
+  pivot_longer(Tackles_Solo:Pass_PB, names_to = "Statistic", values_to = "Value")
+
+defClean %>% 
+  head()
+
+defClean %>% 
+  ggplot(aes(x=Value)) +
+  geom_histogram(binwidth=0.5) +
+  facet_wrap(~Statistic)
+
+```
+
+### All statistics other than Solo/Asst Tackles are relatively rare but the most rare statistics would be the three turnover statistics. 
+
+```{r}
+defClean2 <- defClean %>% 
+  filter(Statistic == "Tackles_Solo",
+         Opponent_Opponent %in% c("West Virginia", "Kansas State")) %>% 
+  select(Name, Opponent_Opponent, Value) %>%
+  pivot_wider(names_from = Opponent_Opponent, values_from = Value) %>% 
+  drop_na()
+
+defClean2 %>% 
+  head()
+
+defClean2 %>%  
+  ggplot(aes(x="West Virginia", y="Kansas State", colour=Name)) +
+  geom_point()
+
 ```
 
 
