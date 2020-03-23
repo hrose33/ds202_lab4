@@ -4,28 +4,29 @@ author: Hunter Rose, Tanner Boyle
 output: html_document
 ---
 
-```{r setup, include=FALSE}
+# Part One:
+
+```{r, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(readxl)
 library(ggplot2)
 library(dplyr)
 library(tidyr)
 library(stringr)
-```
 
-```{r}
 defense <- read_excel('cyclonesFootball2019.xlsx', sheet='Defensive')
 offense <- read_excel('cyclonesFootball2019.xlsx', sheet='Offensive')
 bio <- read_excel('cyclonesFootball2019.xlsx', sheet='Biography')
 ```
 
-```{r}
+
+```{r, include=FALSE}
 defense$Name <- as.factor(defense$Name)
 offense$Name <- as.factor(offense$Name)
 bio$Name <- as.factor(bio$Name)
 ```
 
-```{r}
+```{r, include=FALSE}
 defClean <- defense %>%
   mutate_at(.var = vars(Tackles_Solo, Tackles_ASST, Tackles_TFL, Tackles_Sack, Turnover_FF, Turnover_FR,
           Turnover_INT, Pass_QBH, Pass_PB),
@@ -41,10 +42,6 @@ offense <- offense %>%
            into = c("Passing_CMP", "Passing_ATT"),
            sep = 2)
 
-offense %>% 
-  filter(Name == "Purdy, Brock") %>% 
-  head()
-
 offClean <- offense %>%
   mutate_at(.var = vars(Rushing_ATT, Rushing_YDS, Rushing_TD, Receiving_REC, Receiving_YDS, Receiving_TD,
               Passing_CMP, Passing_ATT, Passing_YDS, Passing_TD, Passing_INT),
@@ -55,19 +52,26 @@ bio %>%
 bioClean <- bio %>%
   mutate_at(.var = vars(Weight, Height),
             .funs = funs(as.numeric))
-
-head(offClean)
-head(defClean)
-head(bioClean)
 ```
 
+
 ```{r}
+str(offClean)
+str(defClean)
+str(bioClean)
+```
+
+# Part Two:
+
+```{r, include=FALSE}
 defClean <- defClean %>% 
   pivot_longer(Tackles_Solo:Pass_PB, names_to = "Statistic", values_to = "Value")
 
 defClean %>% 
   head()
+```
 
+```{r}
 defClean %>% 
   ggplot(aes(x=Value)) +
   geom_histogram(binwidth=0.5) +
@@ -89,18 +93,44 @@ defClean2 %>%
 	head()
 
 defClean2 %>%
-  ggplot(aes(x=`West Virginia`, y=`Kansas State`)) + geom_point()
+  ggplot(aes(x=`West Virginia`, y=`Kansas State`)) + geom_point() + geom_abline(slope=1, intercept=0)
+```
+
+### If defense was equal in both games, then the total number of tackles would be the same (on the line drawn). Since there are more games above the line than below it, we would say that defense against Kansas State was better. A point above the line represents a player that had more tackles against Kansas State than West Virginia.
+
+
+```{r, include=FALSE}
+bioClean2 <- bioClean %>% 
+  separate(Hometown,
+           into = c("City", "State"),
+           sep = ",") 
 ```
 
 ```{r}
+bioClean2[c("City", "State")] %>% 
+  head(10)
+```
+
+```{r}
+bioClean2 %>% 
+  group_by(State) %>% 
+  summarise(n = n()) %>% 
+  arrange(-n)
+```
+
+# Part Three:
+
+
+```{r, include=FALSE}
 off_HT <- bioClean %>%
   select(Name) %>%
   right_join(bioClean, offClean, by="Name")
 head(off_HT)
+
+weight_YDS <- merge(offClean, bioClean, by="Name")
 ```
 
 ```{r}
-weight_YDS <- merge(offClean, bioClean, by="Name")
 weight_YDS %>%
   group_by(Name) %>%
   select(Name, Receiving_YDS, Weight) %>%
@@ -109,7 +139,7 @@ weight_YDS %>%
 
 ### The regression line shows that there is a slight increase in receiving yards while increasing in weight. 
 
-```{r}
+```{r, include=FALSE}
 purdy_stats <- offClean %>%
   filter(Name == "Purdy, Brock") %>%
   select(Rushing_YDS, Passing_YDS, Opponent_Opponent) %>%
@@ -125,9 +155,100 @@ team_stats <- offClean %>%
 
 
 total_stats <- right_join(purdy_stats, team_stats, by = "Opponent_Opponent")
+```
 
+```{r}
 total_stats %>%
   select(total_yds.x, total_yds.y, Opponent_Opponent) %>%
   mutate(total_team_yds = total_yds.x + total_yds.y)
 ```
-Brock Purdy is the main source of yards for the ISU offense. If he doesn't perform well, the entire offense will be performing poorly. 
+### Brock Purdy is the main source of yards for the ISU offense. If he doesn't perform well, the entire offense will be performing poorly.
+
+
+### We wanted to determine whether or not Iowa State's offense is worse than its defense.
+
+
+```{r, include=FALSE}
+offClean <- offClean %>% 
+  pivot_longer(Rushing_ATT:Passing_INT, names_to = "Statistic", values_to = "Value")
+
+exploratory_rush <- offClean %>% 
+  drop_na() %>% 
+  filter(Statistic == "Rushing_ATT") %>% 
+  group_by(Opponent_Opponent) %>% 
+  summarise(Total_Rushes = sum(Value)) %>% 
+  arrange(-Total_Rushes) %>% 
+  as.data.frame()
+
+exploratory_pass <- offClean %>% 
+  drop_na() %>% 
+  filter(Statistic == "Passing_ATT") %>% 
+  group_by(Opponent_Opponent) %>% 
+  summarise(Total_Passes = sum(Value)) %>% 
+  arrange(-Total_Passes) %>% 
+  as.data.frame()
+
+exploratory_tackles <- defClean %>% 
+  filter(Statistic == "Tackles_Solo") %>% 
+  group_by(Opponent_Opponent) %>% 
+  summarise(Total_Tackles = sum(Value)) %>% 
+  arrange(-Total_Tackles) %>% 
+  as.data.frame()
+
+exploratory_PB <- defClean %>% 
+  filter(Statistic == "Pass_PB") %>% 
+  group_by(Opponent_Opponent) %>% 
+  summarise(Total_PB = sum(Value)) %>% 
+  arrange(-Total_PB) %>% 
+  as.data.frame()
+
+offense_merge <- merge(exploratory_rush, exploratory_pass, by = "Opponent_Opponent")
+
+defense_merge <- merge(exploratory_tackles, exploratory_PB, by = "Opponent_Opponent")
+
+total_merge <- merge(offense_merge, defense_merge, by = "Opponent_Opponent")
+```
+
+```{r}
+
+total_merge %>% 
+  ggplot(aes(x=Opponent_Opponent, y=Total_Rushes, colour="Rushes")) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle=60, hjust = 1)) +
+  geom_point(aes(y=Total_Passes, colour="Passes")) +
+  ylab("# of Plays") +
+  labs(title="Scatterplot of Passes vs Rushes for Iowa State Games")
+```
+
+### This plot doesn't show us much -- in general, there are more pass attempts per game than rush attempts. However, this isn't a hard rule.
+
+```{r}
+
+total_merge %>% 
+  ggplot(aes(x=Opponent_Opponent, y=Total_Tackles, colour="Tackles")) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle=60, hjust = 1)) +
+  geom_point(aes(y=Total_PB, colour="Pass Breakups")) +
+  ylab("# of Plays") +
+  labs(title="Scatterplot of Tackles vs Pass Breakups for Iowa State Games")
+```
+
+### Similarly, this doesn't show us too much. However, we can confidently say that there are more tackles than pass breakups in any given game that Iowa State plays.
+
+```{r}
+total_merge %>% 
+  ggplot(aes(x=(Total_Rushes + Total_Passes), y=(Total_Tackles+Total_PB))) +
+  geom_point() +
+  labs(title =  "Total Offensive vs Total Defensive Plays in Iowa State Games", x = "Total Offensive Plays", y="Total Defensive Plays") +
+  xlim(30,90) +
+  ylim(30,90) +
+  geom_abline(slope=1, intercept=0)
+```
+
+### This one is much more interesting. We can see that in every game except for one, Iowa State runs more offensive plays than defensive plays. This could be interpretted a few different ways.
+
+### First, it is possible that, because the ISU defense is so good, our offense is on the field more often than the other team's offense.
+
+### Also, it is possible that our defense is so BAD that the other team's offense scores in only a few plays per game :)
+
+### We would need further exploration of yards per play or scoring plays to really understand the question totally. Also, having the total number of yards that were gained against us (as in there was a solo tackle after 17 yards, etc) then we could really judge yards gained vs yards yielded.
